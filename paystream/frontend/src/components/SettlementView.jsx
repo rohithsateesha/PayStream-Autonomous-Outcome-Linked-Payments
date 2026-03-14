@@ -8,6 +8,7 @@ export default function SettlementView({ sessionId, onReset }) {
   const [dispute, setDispute] = useState(null)
   const [loadingSettle, setLoadingSettle] = useState(false)
   const [loadingDispute, setLoadingDispute] = useState(false)
+  const [paymentStatus, setPaymentStatus] = useState('CREATED') // CREATED | PAID
   const [error, setError] = useState('')
 
   async function handleSettle() {
@@ -118,17 +119,24 @@ export default function SettlementView({ sessionId, onReset }) {
 
       {/* ── Pine Labs Transaction Reference ──────────────────────────────── */}
       {settlement.pine_labs_order_id && (
-        <div className="bg-gray-900 border border-indigo-800/60 rounded-2xl p-5">
+        <div className={`bg-gray-900 border rounded-2xl p-5 ${paymentStatus === 'PAID' ? 'border-emerald-700' : 'border-indigo-800/60'}`}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span className="text-indigo-400 text-lg">💳</span>
               <h3 className="text-white font-semibold text-sm">Pine Labs Transaction</h3>
             </div>
-            {settlement.pine_labs_mock && (
-              <span className="text-xs bg-gray-800 text-gray-500 border border-gray-700 px-2 py-0.5 rounded">
-                UAT Mock
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {settlement.pine_labs_mock && (
+                <span className="text-xs bg-gray-800 text-gray-500 border border-gray-700 px-2 py-0.5 rounded">
+                  UAT Mock
+                </span>
+              )}
+              {paymentStatus === 'PAID' && (
+                <span className="text-xs bg-emerald-900/60 text-emerald-400 border border-emerald-700 px-2 py-0.5 rounded">
+                  Payment Successful
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-3">
@@ -138,7 +146,9 @@ export default function SettlementView({ sessionId, onReset }) {
             </div>
             <div className="bg-gray-800 rounded-xl p-3">
               <p className="text-gray-500 text-xs mb-1">Status</p>
-              <p className="text-emerald-400 font-semibold text-sm">{settlement.pine_labs_order_status}</p>
+              <p className={`font-semibold text-sm ${paymentStatus === 'PAID' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {paymentStatus === 'PAID' ? 'PAYMENT SUCCESSFUL' : 'PAYMENT INITIATED'}
+              </p>
             </div>
           </div>
 
@@ -147,16 +157,24 @@ export default function SettlementView({ sessionId, onReset }) {
             not the contracted ₹{settlement.total_possible.toFixed(2)} maximum.
           </p>
 
-          {settlement.pine_labs_checkout_url && (
-            <a
-              href={settlement.pine_labs_checkout_url}
-              target="_blank"
-              rel="noopener noreferrer"
+          {settlement.pine_labs_checkout_url && paymentStatus !== 'PAID' && (
+            <button
+              onClick={() => {
+                window.open(settlement.pine_labs_checkout_url, '_blank')
+                setPaymentStatus('PAID')
+              }}
               className="flex items-center justify-center gap-2 w-full bg-indigo-700 hover:bg-indigo-600 text-white text-sm font-semibold py-2 rounded-xl transition-colors"
             >
               <span>💳</span>
               <span>Complete Payment via Pine Labs</span>
-            </a>
+            </button>
+          )}
+
+          {paymentStatus === 'PAID' && (
+            <div className="flex items-center justify-center gap-2 w-full bg-emerald-900/40 border border-emerald-700 text-emerald-400 text-sm font-semibold py-2 rounded-xl">
+              <span>✓</span>
+              <span>Payment Completed Successfully</span>
+            </div>
           )}
         </div>
       )}
@@ -224,7 +242,10 @@ export default function SettlementView({ sessionId, onReset }) {
           {dispute ? ', dispute notice,' : ''} and transaction reference — ready to share or file.
         </p>
         <button
-          onClick={async () => { await generateSettlementPDF(settlement, dispute) }}
+          onClick={async () => {
+            const settleWithStatus = { ...settlement, pine_labs_order_status: paymentStatus }
+            await generateSettlementPDF(settleWithStatus, dispute)
+          }}
           className="w-full bg-blue-700 hover:bg-blue-600 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
         >
           <span>📄</span>
