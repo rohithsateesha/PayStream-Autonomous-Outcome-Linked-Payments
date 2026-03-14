@@ -18,10 +18,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BASE_URL    = os.getenv("PINE_LABS_BASE_URL", "https://pluraluat.v2.pinepg.in")
-CLIENT_ID   = os.getenv("PINE_LABS_CLIENT_ID", "")
+BASE_URL      = os.getenv("PINE_LABS_BASE_URL", "https://pluraluat.v2.pinepg.in")
+CLIENT_ID     = os.getenv("PINE_LABS_CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("PINE_LABS_CLIENT_SECRET", "")
-MOCK        = os.getenv("PINE_LABS_MOCK", "true").lower() == "true"
+MOCK          = os.getenv("PINE_LABS_MOCK", "true").lower() == "true"
+
+# ── Startup diagnostics ───────────────────────────────────────────────────────
+print(f"[pinelabs] MOCK={MOCK}")
+print(f"[pinelabs] CLIENT_ID={'SET (' + CLIENT_ID[:8] + '...)' if CLIENT_ID else 'NOT SET'}")
+print(f"[pinelabs] CLIENT_SECRET={'SET' if CLIENT_SECRET else 'NOT SET'}")
+print(f"[pinelabs] BASE_URL={BASE_URL}")
 
 
 class PineLabsClient:
@@ -106,8 +112,15 @@ class PineLabsClient:
                 timeout=10.0,
             )
             resp.raise_for_status()
-            data = resp.json()
-            print(f"[pinelabs] Order created: {data.get('order_id')} for Rs{amount_inr}")
+            data = resp.json().get("data", resp.json())
+            order_id    = data.get("order_id")
+            order_token = data.get("order_token")
+            print(f"[pinelabs] Order created: {order_id} status={data.get('status')} for Rs{amount_inr}")
+
+            # Auto-complete with test UPI in UAT
+            if order_id and order_token:
+                self._complete_payment_uat(order_id, order_token, int(round(amount_inr * 100)))
+
             return data
         except httpx.HTTPStatusError as e:
             print(f"[pinelabs] create_order HTTP error {e.response.status_code}: {e.response.text}")
@@ -115,6 +128,44 @@ class PineLabsClient:
         except Exception as e:
             print(f"[pinelabs] create_order failed: {e}")
             raise
+
+    def _complete_payment_uat(self, order_id: str, order_token: str, amount_paise: int):
+        """
+        Initiate UPI Collect payment on the created order.
+        Endpoint: POST /api/pay/v1/orders/{order_id}/payments
+        Uses test VPA success@ybl for UAT auto-approval.
+        """
+        body = {
+            "payments": [
+                {
+                    "merchant_payment_reference": str(uuid.uuid4()),
+                    "payment_amount": {"value": amount_paise, "currency": "INR"},
+                    "payment_method": "UPI",
+                    "payment_option": {
+                        "upi_details": {
+                            "txn_mode": "COLLECT",
+                            "payer": {"vpa": "success@ybl"},
+                        }
+                    },
+                }
+            ]
+        }
+        try:
+            resp = httpx.post(
+                f"{BASE_URL}/api/pay/v1/orders/{order_id}/payments",
+                json=body,
+                headers=self._headers(),
+                timeout=10.0,
+            )
+            print(f"[pinelabs] Payment RAW response ({resp.status_code}): {resp.text}")
+            result = resp.json().get("data", resp.json())
+            payments = result.get("payments", [{}])
+            pay_status = payments[0].get("status") if payments else result.get("status")
+            print(f"[pinelabs] Payment initiated: order_status={result.get('status')} payment_status={pay_status}")
+        except httpx.HTTPStatusError as e:
+            print(f"[pinelabs] Payment initiation HTTP {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            print(f"[pinelabs] Payment initiation failed: {e}")
 
     def get_order(self, order_id: str) -> dict:
         """Get order status from Pine Labs."""

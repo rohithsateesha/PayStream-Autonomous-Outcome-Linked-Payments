@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { generateSettlementPDF } from '../utils/generatePDF'
 
 const API = 'http://localhost:8000'
 
@@ -197,6 +198,27 @@ export default function SettlementView({ sessionId, onReset }) {
           </p>
         </div>
       )}
+
+      {/* ── PDF Download ─────────────────────────────────────────────────── */}
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-white text-sm font-semibold">Download Invoice</span>
+          <span className="text-xs bg-blue-900/50 text-blue-300 border border-blue-700 px-2 py-0.5 rounded-full">
+            Pine Labs branded
+          </span>
+        </div>
+        <p className="text-gray-500 text-xs mb-3">
+          Full settlement invoice with Pine Labs branding
+          {dispute ? ', dispute notice,' : ''} and transaction reference — ready to share or file.
+        </p>
+        <button
+          onClick={async () => { await generateSettlementPDF(settlement, dispute) }}
+          className="w-full bg-blue-700 hover:bg-blue-600 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+        >
+          <span>📄</span>
+          <span>Download PDF Invoice</span>
+        </button>
+      </div>
 
       <button
         onClick={onReset}

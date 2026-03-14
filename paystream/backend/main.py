@@ -4,8 +4,10 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from models import RuleRequest, SessionRequest
 from rule_translator import translate_for_display
@@ -15,6 +17,7 @@ from ev_simulator import simulate_service_session_async, simulate_ev_session_asy
 from payment_agent import evaluate_telemetry
 from settlement_engine import generate_settlement, generate_dispute_package
 from incident_manager import declare_incident, resolve_incident
+from metrics import update_metrics, increment_incident, clear_session_metrics
 
 
 # ── In-memory session store ──────────────────────────────────────────────────
@@ -51,6 +54,7 @@ async def run_session(session_id: str, merchant_id: str, amount_per_interval: fl
     consecutive_pauses = 0
     incident_active = False
     incident_start_time = None
+    last_metric_key = "charge_rate"
     session_status[session_id] = "running"
 
     try:
@@ -60,6 +64,8 @@ async def run_session(session_id: str, merchant_id: str, amount_per_interval: fl
             )
             history.append(telemetry)
             active_sessions[session_id].append(event)
+            last_metric_key = event.get("metric_key", "charge_rate")
+            update_metrics(event, scenario, amount_per_interval)
 
             metric_val = event.get("metric_value", event.get("charge_rate", "?"))
             unit = event.get("unit", "kW")
@@ -81,6 +87,7 @@ async def run_session(session_id: str, merchant_id: str, amount_per_interval: fl
                         session_id, history, active_sessions[session_id]
                     )
                     active_sessions[session_id].append(incident_event)
+                    increment_incident(session_id, scenario)
 
             else:
                 if incident_active:
@@ -95,6 +102,7 @@ async def run_session(session_id: str, merchant_id: str, amount_per_interval: fl
 
     finally:
         session_status[session_id] = "completed"
+        clear_session_metrics(session_id, scenario, last_metric_key)
 
 
 # ── Observation runner (Feature 1) ───────────────────────────────────────────
@@ -237,6 +245,14 @@ async def get_dispute_package(session_id: str):
     events = active_sessions[session_id]
     rule_text = get_rule_text(MERCHANT_ID)
     return generate_dispute_package(session_id, events, rule_text)
+
+
+# ── Prometheus metrics ────────────────────────────────────────────────────────
+
+@app.get("/metrics")
+async def prometheus_metrics():
+    """Prometheus text format — scraped by Grafana Agent every 5s."""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────
