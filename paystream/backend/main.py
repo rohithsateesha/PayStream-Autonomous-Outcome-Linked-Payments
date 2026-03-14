@@ -26,6 +26,8 @@ except ImportError:
     def update_metrics(*a, **kw): pass
     def increment_incident(*a, **kw): pass
     def clear_session_metrics(*a, **kw): pass
+from session_chat import chat as session_chat
+from contract_advisor import recommend as contract_recommend
 
 
 # ── In-memory session store ──────────────────────────────────────────────────
@@ -54,6 +56,14 @@ class ConfirmRuleRequest(BaseModel):
     session_id: str
     rule_text: str
     amount_per_interval: float = 5.0
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list = []
+
+class ContractRecommendRequest(BaseModel):
+    scenario: str = "ev"
+    context: str = ""
 
 
 # ── Session runner with incident tracking ────────────────────────────────────
@@ -253,6 +263,27 @@ async def get_dispute_package(session_id: str):
     events = active_sessions[session_id]
     rule_text = get_rule_text(MERCHANT_ID)
     return generate_dispute_package(session_id, events, rule_text)
+
+
+# ── AI Chat (Session Q&A) ─────────────────────────────────────────────────────
+
+@app.post("/sessions/{session_id}/chat")
+async def chat_with_session(session_id: str, req: ChatRequest):
+    """Ask a natural-language question about a running or completed session."""
+    if session_id not in active_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    events = active_sessions[session_id]
+    response = session_chat(session_id, req.message, events, req.history)
+    return {"response": response}
+
+
+# ── AI Contract Advisor ───────────────────────────────────────────────────────
+
+@app.post("/contracts/recommend")
+async def get_contract_recommendation(req: ContractRecommendRequest):
+    """Get an AI-powered payment rule recommendation for a given scenario."""
+    result = contract_recommend(req.scenario, req.context)
+    return result
 
 
 # ── Prometheus metrics ────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import ContractAdvisor from './ContractAdvisor'
 
 const API = 'http://localhost:8000'
 const WS_BASE = 'ws://localhost:8000'
@@ -177,7 +178,13 @@ function ManualRuleSetup({ onSessionStart }) {
 
       {/* Industry template chips */}
       <div className="mb-4">
-        <p className="text-gray-500 text-xs mb-2 uppercase tracking-wide">Industry Templates</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-gray-500 text-xs uppercase tracking-wide">Industry Templates</p>
+          <ContractAdvisor
+            scenario={selectedUseCase || 'ev'}
+            onUseRule={(rule) => { setRuleText(rule); setSelectedUseCase(null); setCompiled(null); setError('') }}
+          />
+        </div>
         <div className="flex flex-wrap gap-2">
           {USE_CASES.map(uc => (
             <button

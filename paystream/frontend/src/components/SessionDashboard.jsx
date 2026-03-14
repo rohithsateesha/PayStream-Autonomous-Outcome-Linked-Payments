@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import TelemetryChart from './TelemetryChart'
 import PaymentLog from './PaymentLog'
 import SettlementView from './SettlementView'
+import SessionChat from './SessionChat'
 
 const WS_BASE = 'ws://localhost:8000'
 
@@ -190,6 +191,9 @@ export default function SessionDashboard({ sessionId, threshold, ruleText, agent
           </button>
         </div>
       )}
+
+      {/* AI Chat Panel */}
+      <SessionChat sessionId={sessionId} />
     </div>
   )
 }
