@@ -10,6 +10,7 @@ class RuleRequest(BaseModel):
 class SessionRequest(BaseModel):
     merchant_id: str
     amount_per_interval: float = 5.0  # INR per 5-second interval
+    scenario: str = "ev"              # ev | cloud | delivery | solar | freelance
 
 
 class SessionEvent(BaseModel):
