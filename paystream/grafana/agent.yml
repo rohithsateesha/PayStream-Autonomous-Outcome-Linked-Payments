@@ -11,7 +11,7 @@ metrics:
           static_configs:
             - targets: ['localhost:8000']
       remote_write:
-        - url: https://prometheus-prod-43-prod-ap-south-1.grafana.net/api/prom/push
+        - url: ${GRAFANA_REMOTE_WRITE_URL}
           basic_auth:
-            username: "3041798"
-            password: glc_eyJvIjoiMTY5OTA5NSIsIm4iOiJzdGFjay0xNTU4Nzg1LWhtLXdyaXRlLXBheXN0cmVhbXRva2VuIiwiayI6IjBEOEpZTjkxOTcyb1Y3anZwaURjN1dINSIsIm0iOnsiciI6InByb2QtYXAtc291dGgtMSJ9fQ==
+            username: ${GRAFANA_USERNAME}
+            password: ${GRAFANA_API_KEY}
