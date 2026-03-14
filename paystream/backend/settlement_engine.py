@@ -19,29 +19,30 @@ MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-5-haiku-20241022-v1
 
 
 def generate_settlement(session_id: str, events: list) -> dict:
-    charged = [e for e in events if e["action_taken"] == "charged"]
-    paused  = [e for e in events if e["action_taken"] == "paused"]
-    reduced = [e for e in events if e["action_taken"] == "reduced"]
+    # Filter to only payment events (exclude incidents, observations, etc.)
+    payment_events = [e for e in events if "action_taken" in e]
+    charged = [e for e in payment_events if e["action_taken"] == "charged"]
+    paused  = [e for e in payment_events if e["action_taken"] == "paused"]
+    reduced = [e for e in payment_events if e["action_taken"] == "reduced"]
 
-    total_possible = len(events) * (events[0]["amount_charged"] if charged else 5.0)
     # Recalculate total_possible as if every interval was fully charged
     amount_per_interval = next(
         (e["amount_charged"] for e in charged), 5.0
     )
-    total_possible = len(events) * amount_per_interval
-    total_billed   = sum(e["amount_charged"] for e in events)
+    total_possible = len(payment_events) * amount_per_interval
+    total_billed   = sum(e["amount_charged"] for e in payment_events)
     withheld       = round(total_possible - total_billed, 2)
 
     summary = {
         "session_id": session_id,
-        "total_intervals": len(events),
+        "total_intervals": len(payment_events),
         "charged_intervals": len(charged),
         "paused_intervals": len(paused),
         "reduced_intervals": len(reduced),
         "total_billed_inr": round(total_billed, 2),
         "amount_withheld_inr": withheld,
         "degradation_samples": [
-            {"elapsed_s": e.get("elapsed_seconds"), "charge_rate_kW": e["charge_rate"]}
+            {"elapsed_s": e.get("elapsed_seconds"), "charge_rate_kW": e.get("charge_rate", e.get("metric_value", "?"))}
             for e in paused[:5]
         ],
     }
@@ -75,6 +76,7 @@ def generate_settlement(session_id: str, events: list) -> dict:
         "charged_intervals": len(charged),
         "paused_intervals": len(paused),
         "reduced_intervals": len(reduced),
+        "total_intervals": len(payment_events),
         "explanation": explanation,
         "pine_labs_order_id": pine_order_id,
         "pine_labs_order_status": pine_order_status,

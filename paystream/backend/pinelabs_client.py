@@ -149,11 +149,13 @@ class PineLabsClient:
 
     def _mock_order(self, session_id: str, amount_inr: float) -> dict:
         order_id = f"ord_{uuid.uuid4().hex[:12]}"
+        amount_paise = int(round(amount_inr * 100))
+        checkout_url = f"{BASE_URL}/checkout/mock?order_id={order_id}&amount={amount_paise}"
         print(f"[pinelabs] MOCK order {order_id} for Rs{amount_inr}")
         return {
             "order_id":     order_id,
             "status":       "CREATED",
-            "checkout_url": None,
+            "checkout_url": checkout_url,
             "mock":         True,
         }
 
