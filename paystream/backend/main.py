@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from models import RuleRequest, SessionRequest
 from rule_translator import translate_for_display
@@ -17,7 +16,16 @@ from ev_simulator import simulate_service_session_async, simulate_ev_session_asy
 from payment_agent import evaluate_telemetry
 from settlement_engine import generate_settlement, generate_dispute_package
 from incident_manager import declare_incident, resolve_incident
-from metrics import update_metrics, increment_incident, clear_session_metrics
+# ── Grafana/Prometheus (optional — install prometheus-client to enable) ───────
+try:
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    from metrics import update_metrics, increment_incident, clear_session_metrics
+    METRICS_ENABLED = True
+except ImportError:
+    METRICS_ENABLED = False
+    def update_metrics(*a, **kw): pass
+    def increment_incident(*a, **kw): pass
+    def clear_session_metrics(*a, **kw): pass
 
 
 # ── In-memory session store ──────────────────────────────────────────────────
@@ -251,7 +259,9 @@ async def get_dispute_package(session_id: str):
 
 @app.get("/metrics")
 async def prometheus_metrics():
-    """Prometheus text format — scraped by Grafana Agent every 5s."""
+    """Prometheus text format — only active when prometheus-client is installed."""
+    if not METRICS_ENABLED:
+        return Response("# Grafana metrics disabled. Install prometheus-client to enable.\n", media_type="text/plain")
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
