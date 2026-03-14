@@ -117,6 +117,7 @@ function ManualRuleSetup({ onSessionStart }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sessionLoading, setSessionLoading] = useState(false)
+  const [showJson, setShowJson] = useState(false)
 
   function handleSelectUseCase(uc) {
     setSelectedUseCase(uc.id)
@@ -227,13 +228,56 @@ function ManualRuleSetup({ onSessionStart }) {
 
       {compiled && (
         <div className="mt-5">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 bg-emerald-400 rounded-full" />
-            <span className="text-emerald-400 text-sm font-medium">Rule compiled successfully</span>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-emerald-400 rounded-full" />
+              <span className="text-emerald-400 text-sm font-medium">Rule compiled successfully</span>
+            </div>
+            <div className="flex bg-gray-800 border border-gray-700 rounded-lg p-0.5">
+              <button
+                onClick={() => setShowJson(false)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  !showJson ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                Summary
+              </button>
+              <button
+                onClick={() => setShowJson(true)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  showJson ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                JSON
+              </button>
+            </div>
           </div>
-          <pre className="bg-gray-800 border border-gray-700 rounded-xl p-4 text-xs text-emerald-300 overflow-auto">
-            {JSON.stringify(compiled.compiled, null, 2)}
-          </pre>
+
+          {showJson ? (
+            <pre className="bg-gray-800 border border-gray-700 rounded-xl p-4 text-xs text-emerald-300 overflow-auto">
+              {JSON.stringify(compiled.compiled, null, 2)}
+            </pre>
+          ) : (
+            <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500 text-xs w-20 shrink-0">Metric</span>
+                <span className="text-white text-sm font-medium">{compiled.compiled.condition_metric?.replace(/_/g, ' ')}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500 text-xs w-20 shrink-0">Condition</span>
+                <span className="text-white text-sm font-medium">
+                  {compiled.compiled.operator === 'lt' ? 'Below' : compiled.compiled.operator === 'gt' ? 'Above' : compiled.compiled.operator}{' '}
+                  {compiled.compiled.threshold} {compiled.compiled.unit}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500 text-xs w-20 shrink-0">Action</span>
+                <span className={`text-sm font-medium ${compiled.compiled.action === 'pause' ? 'text-red-400' : 'text-amber-400'}`}>
+                  {compiled.compiled.action === 'pause' ? 'Pause payment' : `Reduce payment by ${compiled.compiled.reduce_by_percent}%`}
+                </span>
+              </div>
+            </div>
+          )}
           <button
             onClick={handleStartSession}
             disabled={sessionLoading}
