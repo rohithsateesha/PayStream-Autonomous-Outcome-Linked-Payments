@@ -91,12 +91,11 @@ class PineLabsClient:
             "callback_url": "http://localhost:5173",
             "failure_callback_url": "http://localhost:5173",
             "purchase_details": {
-                "customer": {
-                    "email_id": "demo@paystream.ai",
-                    "first_name": "PayStream",
-                    "last_name": "Demo",
-                    "mobile_number": "9999999999",
-                },
+                "first_name": "PayStream",
+                "last_name": "Demo",
+                "email_id": "demo@paystream.ai",
+                "mobile_number": "9999999999",
+                "country_code": "91",
                 "merchant_metadata": {
                     "key1": "PayStream Outcome-Verified Settlement",
                     "key2": session_id,
@@ -106,22 +105,23 @@ class PineLabsClient:
 
         try:
             resp = httpx.post(
-                f"{BASE_URL}/api/pay/v1/orders",
+                f"{BASE_URL}/api/checkout/v1/orders",
                 json=body,
                 headers=self._headers(),
                 timeout=10.0,
             )
             resp.raise_for_status()
-            data = resp.json().get("data", resp.json())
-            order_id    = data.get("order_id")
-            order_token = data.get("order_token")
-            print(f"[pinelabs] Order created: {order_id} status={data.get('status')} for Rs{amount_inr}")
-
-            # Auto-complete with test UPI in UAT
-            if order_id and order_token:
-                self._complete_payment_uat(order_id, order_token, int(round(amount_inr * 100)))
-
-            return data
+            data = resp.json()
+            order_id     = data.get("order_id")
+            redirect_url = data.get("redirect_url")
+            print(f"[pinelabs] Order created: {order_id} for Rs{amount_inr}")
+            print(f"[pinelabs] Checkout URL: {redirect_url}")
+            # Normalise response to match the rest of the code
+            return {
+                "order_id":     order_id,
+                "status":       "CREATED",
+                "checkout_url": redirect_url,
+            }
         except httpx.HTTPStatusError as e:
             print(f"[pinelabs] create_order HTTP error {e.response.status_code}: {e.response.text}")
             raise
@@ -129,43 +129,6 @@ class PineLabsClient:
             print(f"[pinelabs] create_order failed: {e}")
             raise
 
-    def _complete_payment_uat(self, order_id: str, order_token: str, amount_paise: int):
-        """
-        Initiate UPI Collect payment on the created order.
-        Endpoint: POST /api/pay/v1/orders/{order_id}/payments
-        Uses test VPA success@ybl for UAT auto-approval.
-        """
-        body = {
-            "payments": [
-                {
-                    "merchant_payment_reference": str(uuid.uuid4()),
-                    "payment_amount": {"value": amount_paise, "currency": "INR"},
-                    "payment_method": "UPI",
-                    "payment_option": {
-                        "upi_details": {
-                            "txn_mode": "COLLECT",
-                            "payer": {"vpa": "success@ybl"},
-                        }
-                    },
-                }
-            ]
-        }
-        try:
-            resp = httpx.post(
-                f"{BASE_URL}/api/pay/v1/orders/{order_id}/payments",
-                json=body,
-                headers=self._headers(),
-                timeout=10.0,
-            )
-            print(f"[pinelabs] Payment RAW response ({resp.status_code}): {resp.text}")
-            result = resp.json().get("data", resp.json())
-            payments = result.get("payments", [{}])
-            pay_status = payments[0].get("status") if payments else result.get("status")
-            print(f"[pinelabs] Payment initiated: order_status={result.get('status')} payment_status={pay_status}")
-        except httpx.HTTPStatusError as e:
-            print(f"[pinelabs] Payment initiation HTTP {e.response.status_code}: {e.response.text}")
-        except Exception as e:
-            print(f"[pinelabs] Payment initiation failed: {e}")
 
     def get_order(self, order_id: str) -> dict:
         """Get order status from Pine Labs."""
@@ -188,11 +151,10 @@ class PineLabsClient:
         order_id = f"ord_{uuid.uuid4().hex[:12]}"
         print(f"[pinelabs] MOCK order {order_id} for Rs{amount_inr}")
         return {
-            "order_id": order_id,
-            "merchant_order_reference": f"PS_{session_id}",
-            "status": "CREATED",
-            "order_amount": {"value": int(amount_inr * 100), "currency": "INR"},
-            "mock": True,
+            "order_id":     order_id,
+            "status":       "CREATED",
+            "checkout_url": None,
+            "mock":         True,
         }
 
 

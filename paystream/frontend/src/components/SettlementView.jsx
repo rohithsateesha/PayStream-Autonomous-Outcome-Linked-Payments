@@ -142,10 +142,22 @@ export default function SettlementView({ sessionId, onReset }) {
             </div>
           </div>
 
-          <p className="text-gray-500 text-xs italic">
+          <p className="text-gray-500 text-xs italic mb-3">
             Pine Labs order created for ₹{settlement.total_billed.toFixed(2)} — the autonomously verified amount,
             not the contracted ₹{settlement.total_possible.toFixed(2)} maximum.
           </p>
+
+          {settlement.pine_labs_checkout_url && (
+            <a
+              href={settlement.pine_labs_checkout_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full bg-indigo-700 hover:bg-indigo-600 text-white text-sm font-semibold py-2 rounded-xl transition-colors"
+            >
+              <span>💳</span>
+              <span>Complete Payment via Pine Labs</span>
+            </a>
+          )}
         </div>
       )}
 

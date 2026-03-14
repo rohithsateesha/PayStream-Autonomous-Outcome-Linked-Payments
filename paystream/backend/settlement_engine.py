@@ -56,11 +56,13 @@ def generate_settlement(session_id: str, events: list) -> dict:
     pine_order_id = None
     pine_order_status = None
     pine_mock = False
+    pine_checkout_url = None
     try:
         pine_result = create_settlement_order(session_id, round(total_billed, 2))
         pine_order_id = pine_result.get("order_id")
         pine_order_status = pine_result.get("status")
         pine_mock = pine_result.get("mock", False)
+        pine_checkout_url = pine_result.get("checkout_url")
         print(f"[settlement_engine] Pine Labs order {pine_order_id} created for Rs{total_billed:.2f}")
     except Exception as e:
         print(f"[settlement_engine] Pine Labs order creation failed: {e}")
@@ -77,6 +79,7 @@ def generate_settlement(session_id: str, events: list) -> dict:
         "pine_labs_order_id": pine_order_id,
         "pine_labs_order_status": pine_order_status,
         "pine_labs_mock": pine_mock,
+        "pine_labs_checkout_url": pine_checkout_url,
     }
 
 
