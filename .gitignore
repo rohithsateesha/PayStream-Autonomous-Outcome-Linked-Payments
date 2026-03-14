@@ -5,9 +5,12 @@ __pycache__/
 *.pyo
 *.pyd
 .env
+.env.*
 
 # Node
 node_modules/
 
 # Claude
 .claude/settings.local.json
+paystream/.env.example
+paystream/.env.example
